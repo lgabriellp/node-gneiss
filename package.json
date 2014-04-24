@@ -1,0 +1,15 @@
+{
+  "name": "gneiss",
+  "version": "0.0.0",
+  "description": "A Wireless Network Sensor Performance Evaluation Tool",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [
+    "wsn",
+    "sunspot",
+    "performance"
+  ],
+  "author": "lgabriellp@gmail.com",
+  "license": "MIT"
+}
