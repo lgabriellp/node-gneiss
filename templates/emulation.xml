@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<virtual-config keep-addresses="false" run-midlets="true">
+    {% for spot in spots %}<virtual-spot>
+        <jar file="{{spot.path}}/suite/{{spot.name}}_{{spot.version}}.jar"/>
+        {% for midlet in spot.midlets %}<midlet name="{{midlet.pkg}}.{{midlet.name}}"/>{% endfor %}
+    </virtual-spot>{% endfor %}
+</virtual-config>

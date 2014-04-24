@@ -1,11 +1,17 @@
 var child_process = require("child_process");
+var swig = require("swig");
+var fs = require("fs");
 
 function Emulation(config) {
-    var argv = [ "solarium" ];
+    var configFile = "/tmp/emulation.xml";
+    var argv = [ "solarium", "-Dconfig.file=" + __dirname + configFile ];
     var options = {
         cwd: config.path,
         env: process.env,
     };
+   
+    var text = swig.renderFile(__dirname + "/templates/emulation.xml", config);
+    fs.writeFileSync(__dirname + configFile, text);
 
     this.child = child_process.spawn("ant", argv, options);
 }
