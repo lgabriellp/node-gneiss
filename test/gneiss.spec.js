@@ -10,7 +10,7 @@ function until(expression, done) {
 }
 
 describe("Gneiss Emulation", function() {
-    this.timeout(10000);
+    this.timeout(60000);
 
     beforeEach(function() {
         this.emu = gneiss.emulation({
@@ -31,7 +31,7 @@ describe("Gneiss Emulation", function() {
         this.emu.stop();
     });
 
-    it("should start and stop an emulation", function(done) {
+    it("should start and stop an emulator", function(done) {
         setTimeout(done, 9000);
     });
 
@@ -42,4 +42,17 @@ describe("Gneiss Emulation", function() {
     it("should run a midlet", function(done) {
         this.emu.pipe(until("\"event\": \"step\"", done));
     });
+
+    it("should emit events", function(done) {
+        this.emu.on("event", function(ev) {
+            assert.isObject(ev);
+            assert.property(ev, "event");
+            assert.property(ev, "address");
+
+            if (ev.event === "step") done();
+        });
+    });
+
+    it("should save events in database");
+    it("should compute wsn performance metrics");
 });
