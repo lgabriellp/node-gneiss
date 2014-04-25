@@ -1,6 +1,8 @@
 var gneiss = require(".");
+var events = require("events");
 var through = require("through");
 var assert = require('chai').assert;
+var _ = require("lodash");
 
 function until(expression, done) {
     return through(function (data) {
@@ -53,46 +55,7 @@ describe("Gneiss Emulation", function() {
             if (ev.event === "step") done();
         });
     });
-
-    describe("Store", function() {
-        var store;
-        var maxEvents = 2;
-        
-        beforeEach(function() {
-            store = gneiss.store({
-                host: "localhost",
-                port: "27017",
-                base: "test",
-                name: "emulation-0",
-            });
-        });
-
-        beforeEach(function() {
-            var counter = 0;
-            
-            emu.on("event", function(ev) {
-                store.save(ev, function(err) {
-                    if (err) return done(err);
-                    if (++counter < maxEvents) return;
-                    
-                    emu.emit("collect");
-                });
-            }); 
-        });
     
-        afterEach(function(done) {
-            store.drop(done);
-        });
-
-        it("should collect events in database", function(done) {
-            emu.on("collect", function() {
-                store.find().toArray(function(err, events) {
-                    assert.lengthOf(events, maxEvents);
-                    done();
-                });
-            });
-        });
-
-        it("should collect wsn performance metrics using map/reduce");
-    });
+    it("should run multiple spots");
+    it("should run multiple spots with multiples midlets");
 });

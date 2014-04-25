@@ -49,8 +49,8 @@ function Store(config) {
     this.collection = this.db.bind(config.name, { w: 1 });
 }
 
-Store.prototype.save = function(doc, done) {
-    this.collection.insert(doc, done);
+Store.prototype.save = function(args, done) {
+    this.collection.insert(args, done);
 };
 
 Store.prototype.find = function(args) {
