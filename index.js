@@ -12,14 +12,16 @@ function Emulation(config) {
     var argv = [ "solarium", "-Dconfig.file=" + __dirname + configFile ];
     var options = {
         cwd: config.path,
-        env: process.env,
+        env: { DISPLAY: ":1" },
         detached: true
     };
    
     var text = swig.renderFile(__dirname + "/templates/emulation.xml", config);
     fs.writeFileSync(__dirname + configFile, text);
 
+    this.xvfb = child_process.spawn("Xvfb", [ ":1" ], options);
     this.child = child_process.spawn("ant", argv, options);
+
     this.on("data", function (data) {
         var lines = data.toString().split("\n");
         
@@ -41,6 +43,7 @@ util.inherits(Emulation, stream.PassThrough);
 
 Emulation.prototype.stop = function() {
     this.child.kill("SIGINT");
+    this.xvfb.kill("SIGINT");
 };
 
 function Store(config) {
