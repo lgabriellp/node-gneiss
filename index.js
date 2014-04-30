@@ -1,9 +1,12 @@
 var child_process = require("child_process");
 var mongoskin = require("mongoskin");
 var stream = require("stream");
+var events = require("events");
+var async = require("async");
 var util = require("util");
+var path = require("path");
 var swig = require("swig");
-var fs = require("fs");
+var fs = require("fs-extra");
 
 function Emulation(config) {
     stream.PassThrough.call(this);
@@ -46,6 +49,9 @@ Emulation.prototype.stop = function() {
     this.xvfb.kill("SIGINT");
 };
 
+Emulation.prototype.clean = function(done) {
+};
+
 function Store(config) {
     var url = "mongodb://" + config.host + ":" + config.port + "/" + config.base;
     this.db = mongoskin.db(url, {native_parser:true});
@@ -64,7 +70,38 @@ Store.prototype.drop = function(done) {
     this.collection.remove(done);
 };
 
+function Builder(config) {
+    events.EventEmitter.call(this);
+    var defaultConcurrency = 4;
+    this.deploy = __dirname + "/" + config.deploy;
+}
+
+util.inherits(Builder, events.EventEmitter);
+
+Builder.prototype.build = function(spot, done) {
+    var buildSourcePath = path.join(this.deploy, path.basename(spot.path));
+    var jarBuildName = spot.name + "_" + spot.version + ".jar";
+    var jarBuildPath = path.join(buildSourcePath, "suite", jarBuildName);
+    var jarDestPath = path.join(this.deploy, jarBuildName);
+
+    async.series([
+        async.apply(fs.mkdirs, this.deploy),
+        async.apply(fs.copy, spot.path, buildSourcePath),
+        async.apply(child_process.exec, "ant jar-app", {
+            cwd: buildSourcePath
+        }),
+        async.apply(fs.copy, jarBuildPath, jarDestPath)
+    ], done);
+};
+
+Builder.prototype.clean = function(done) {
+    fs.remove(this.deploy, done);
+};
+
 module.exports = {
+    builder: function(config) {
+        return new Builder(config);
+    },
     emulation: function(config) {
         return new Emulation(config);
     },

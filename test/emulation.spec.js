@@ -1,7 +1,9 @@
 var gneiss = require(".");
 var events = require("events");
 var through = require("through");
-var assert = require('chai').assert;
+var chai = require("chai");
+var assert = chai.assert;
+chai.use(require("chai-fs"));
 
 function until(expression, done) {
     return through(function (data) {
