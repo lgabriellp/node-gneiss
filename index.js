@@ -8,6 +8,12 @@ var path = require("path");
 var swig = require("swig");
 var fs = require("fs-extra");
 
+function render(src, dst, config, done) {
+    swig.renderFile(src, config, function(err, text) {
+        fs.writeFile(dst, text, done);
+    });
+}
+
 function Emulation(config) {
     stream.PassThrough.call(this);
 
@@ -19,8 +25,9 @@ function Emulation(config) {
         detached: true
     };
    
-    var text = swig.renderFile(__dirname + "/templates/emulation.xml", config);
-    fs.writeFileSync(__dirname + configFile, text);
+    render(path.join(__dirname, "templates", "emulation.xml"),
+           path.join(__dirname, configFile),
+           config);
 
     this.xvfb = child_process.spawn("Xvfb", [ ":1" ], options);
     this.child = child_process.spawn("ant", argv, options);
@@ -73,13 +80,13 @@ Store.prototype.drop = function(done) {
 function Builder(config) {
     events.EventEmitter.call(this);
     var defaultConcurrency = 4;
-    this.deploy = __dirname + "/" + config.deploy;
+    this.deploy = path.join(__dirname, config.deploy);
 }
 
 util.inherits(Builder, events.EventEmitter);
 
-Builder.prototype.build = function(spot, done) {
-    var buildSourcePath = path.join(this.deploy, path.basename(spot.path));
+Builder.prototype.buildOne = function(spot, done) {
+    var buildSourcePath = path.join(this.deploy, path.basename(spot.path), spot.version);
     var jarBuildName = spot.name + "_" + spot.version + ".jar";
     var jarBuildPath = path.join(buildSourcePath, "suite", jarBuildName);
     var jarDestPath = path.join(this.deploy, jarBuildName);
@@ -87,11 +94,29 @@ Builder.prototype.build = function(spot, done) {
     async.series([
         async.apply(fs.mkdirs, this.deploy),
         async.apply(fs.copy, spot.path, buildSourcePath),
+        function(callback) {
+            spot.midlets.forEach(function(midlet, index) {
+                midlet.number = index + 1;
+            });
+
+            callback();
+        },
+        async.apply(render,
+                    path.join(__dirname, "templates", "manifest.mf"),
+                    path.join(buildSourcePath, "resources", "META-INF", "manifest.mf"),
+                    spot),
+        
         async.apply(child_process.exec, "ant jar-app", {
             cwd: buildSourcePath
         }),
         async.apply(fs.copy, jarBuildPath, jarDestPath)
-    ], done);
+    ], function(err, results) {
+        done(err, results);
+    });
+};
+
+Builder.prototype.build = function(spots, done) {
+    async.each(spots, this.buildOne.bind(this), done);
 };
 
 Builder.prototype.clean = function(done) {

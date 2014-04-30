@@ -1,0 +1,6 @@
+MIDlet-Name: {{name}}
+MIDlet-Version: {{version}}
+MIDlet-Vendor: {{vendor}}
+{% for midlet in midlets %}MIDlet-{{midlet.number}}: {{midlet.name}}, , {{midlet.package}}
+{% endfor %}MicroEdition-Profile: IMP-1.0
+MicroEdition-Configuration: CLDC-1.1
