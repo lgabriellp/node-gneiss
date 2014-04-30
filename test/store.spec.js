@@ -1,7 +1,7 @@
 var gneiss = require(".");
 var _ = require("lodash");
 var events = require("events");
-var assert = require('chai').assert;
+var assert = require("chai").assert;
 
 describe("Store", function() {
     var store;
@@ -40,6 +40,8 @@ describe("Store", function() {
     it("should collect events in database", function(done) {
         emitter.on("collect", function() {
             store.find().count(function(err, count) {
+                if (err) return done(err);
+
                 assert.equal(count, samples.length);
                 done();
             });
@@ -49,8 +51,12 @@ describe("Store", function() {
     it("should compute performance metrics", function(done) {
         emitter.on("collect", function() {
             store.collection.mapReduce(function() {
+                /* global emit */
+                /* this function will be called in mongodb */
                 emit(this.seqno, this.energy);
             }, function(key, values) {
+                void(key); /* use key field without side-effects */
+
                 var result = 0;
                 for (var i = 0; i < values.length; i++) {
                     result += values[i];
@@ -59,6 +65,8 @@ describe("Store", function() {
             }, {
                 out: { inline: 1 },
             }, function(err, result) {
+                if (err) return done(err);
+
                 assert.deepEqual(_.pluck(result, "value"), [80, 70, 60]);
                 done();
             });

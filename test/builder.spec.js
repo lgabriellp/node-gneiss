@@ -13,6 +13,8 @@ describe("Spot Builder", function() {
     
     afterEach(function(done) {
         builder.clean(function(err) {
+            if (err) return done(err);
+
             assert.notPathExists("test/tmp");
             done();
         });

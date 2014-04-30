@@ -10,6 +10,8 @@ var fs = require("fs-extra");
 
 function render(src, dst, config, done) {
     swig.renderFile(src, config, function(err, text) {
+        if (err) return done(err);
+
         fs.writeFile(dst, text, done);
     });
 }
@@ -56,12 +58,13 @@ Emulation.prototype.stop = function() {
     this.xvfb.kill("SIGINT");
 };
 
-Emulation.prototype.clean = function(done) {
+Emulation.prototype.clean = function() {
+
 };
 
 function Store(config) {
     var url = "mongodb://" + config.host + ":" + config.port + "/" + config.base;
-    this.db = mongoskin.db(url, {native_parser:true});
+    this.db = mongoskin.db(url, { native_parser: true });
     this.collection = this.db.bind(config.name, { w: 1 });
 }
 
@@ -79,7 +82,6 @@ Store.prototype.drop = function(done) {
 
 function Builder(config) {
     events.EventEmitter.call(this);
-    var defaultConcurrency = 4;
     this.deploy = path.join(__dirname, config.deploy);
 }
 
