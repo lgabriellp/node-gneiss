@@ -30,16 +30,16 @@ describe("Emulation", function() {
         });
     });
 
+    beforeEach(function(done) {
+        emu.pipe(until("-do-run-solarium", done));
+    });
+
     afterEach(function() {
         emu.stop();
     });
 
     it("should start and stop an emulator", function(done) {
         setTimeout(done, 9000);
-    });
-
-    it("should pipe stdout and stderr", function(done) {
-        emu.pipe(until("-do-run-solarium", done));
     });
 
     it("should run a midlet", function(done) {
