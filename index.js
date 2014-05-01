@@ -16,20 +16,38 @@ function render(src, dst, config, done) {
     });
 }
 
-function Emulation(config) {
+function Emulation(config, done) {
     stream.PassThrough.call(this);
 
-    var configFile = "/tmp/emulation.xml";
-    var argv = [ "solarium", "-Dconfig.file=" + __dirname + configFile ];
+    this.configFile = "/tmp/emulation.xml";
+    
+    async.series([
+        async.apply(fs.mkdirs, "tmp"),
+        function(done) {
+            render(path.join(__dirname, "templates", "emulation.xml"),
+                   path.join(__dirname, this.configFile),
+                   config,
+                   done);
+        }.bind(this),
+    ], function(err) {
+        if (err) return done(err);
+        
+        this.start(config);
+        done();
+    }.bind(this));
+}
+
+util.inherits(Emulation, stream.PassThrough);
+
+Emulation.prototype.start = function(config) {
+    if (this.xvfb || this.child) return;
+
+    var argv = [ "solarium", "-Dconfig.file=" + __dirname + this.configFile ];
     var options = {
         cwd: config.path,
         env: { DISPLAY: ":1" },
         detached: true
     };
-   
-    render(path.join(__dirname, "templates", "emulation.xml"),
-           path.join(__dirname, configFile),
-           config);
 
     this.xvfb = child_process.spawn("Xvfb", [ ":1" ], options);
     this.child = child_process.spawn("ant", argv, options);
@@ -49,17 +67,15 @@ function Emulation(config) {
 
     this.child.stdout.pipe(this);
     this.child.stderr.pipe(this);
-}
-
-util.inherits(Emulation, stream.PassThrough);
+};
 
 Emulation.prototype.stop = function() {
     this.child.kill("SIGINT");
     this.xvfb.kill("SIGINT");
 };
 
-Emulation.prototype.clean = function() {
-
+Emulation.prototype.clean = function(done) {
+    fs.remove("tmp", done);
 };
 
 function Store(config) {
@@ -129,8 +145,8 @@ module.exports = {
     builder: function(config) {
         return new Builder(config);
     },
-    emulation: function(config) {
-        return new Emulation(config);
+    emulation: function(config, done) {
+        return new Emulation(config, done);
     },
     store: function(config) {
         return new Store(config);

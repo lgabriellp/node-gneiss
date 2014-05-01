@@ -15,7 +15,7 @@ describe("Emulation", function() {
     var emu;
     this.timeout(60000);
 
-    beforeEach(function() {
+    beforeEach(function(done) {
         emu = gneiss.emulation({
             path: "/home/lgabriel/Workspace/Ufrj/SunSPOT/sdk",
             spots: [{
@@ -27,15 +27,26 @@ describe("Emulation", function() {
                     pkg: "br.ufrj.dcc.simple"
                 }]
             }]
-        });
+        }, done);
     });
 
     beforeEach(function(done) {
         emu.pipe(until("-do-run-solarium", done));
     });
 
-    afterEach(function() {
+    beforeEach(function() {
+        assert.pathExists("tmp/emulation.xml");
+    });
+
+    afterEach(function(done) {
         emu.stop();
+        emu.clean(function(err) {
+            if (err) return done(err);
+
+            assert.notPathExists("tmp/emulation.xml");
+            assert.notPathExists("tmp");
+            done();
+        });
     });
 
     it("should start and stop an emulator", function(done) {
