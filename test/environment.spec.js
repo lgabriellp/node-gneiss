@@ -35,6 +35,12 @@ describe.only("Environment", function() {
         }, done);
     });
 
+    it("should create deployment path from json file", function(done) {
+        env = gneiss.environment({
+            file: "test/fixtures/environment.json"
+        }, done);
+    });
+
     afterEach(function(done) {
         assert.pathExists("test/tmp");
         assert.pathExists("test/tmp/build.xml");

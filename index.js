@@ -142,17 +142,38 @@ Builder.prototype.clean = function(done) {
 };
 
 function Environment(config, done) {
-    this.config = config;
-
     async.series([
-        async.apply(fs.mkdirs, this.config.deploy),
-        async.apply(fs.copy,
-                    path.join(this.config.sunspot, "build.xml"),
-                    path.join(this.config.deploy, "build.xml")),
+        async.apply(this.loadConfig.bind(this), config),
+        async.apply(this.createBuildPath.bind(this)),
+        async.apply(this.copyBuildFile.bind(this)),
         async.apply(this.copySpotsJar.bind(this)),
         async.apply(this.renderEmulationFile.bind(this)),
     ], done);
 }
+
+Environment.prototype.loadConfig = function(config, done) {
+    if (!config.file) {
+        this.config = config;
+        return done();
+    }
+
+    fs.readFile(config.file, function(err, text) {
+        if (err) return done(err);
+
+        this.config = JSON.parse(text);
+        done();
+    }.bind(this));
+};
+
+Environment.prototype.createBuildPath = function(done) {
+    fs.mkdirs(this.config.deploy, done);
+};
+
+Environment.prototype.copyBuildFile = function(done) {
+    fs.copy(path.join(this.config.sunspot, "build.xml"),
+            path.join(this.config.deploy, "build.xml"),
+            done);
+};
 
 Environment.prototype.clean = function(done) {
     fs.remove(this.config.deploy, done);
