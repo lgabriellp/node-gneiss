@@ -141,6 +141,42 @@ Builder.prototype.clean = function(done) {
     fs.remove(this.deploy, done);
 };
 
+function Environment(config, done) {
+    this.config = config;
+
+    async.series([
+        async.apply(fs.mkdirs, this.config.deploy),
+        async.apply(fs.copy,
+                    path.join(this.config.sunspot, "build.xml"),
+                    path.join(this.config.deploy, "build.xml")),
+        async.apply(this.copySpotsJar.bind(this)),
+        async.apply(this.renderEmulationFile.bind(this)),
+    ], done);
+}
+
+Environment.prototype.clean = function(done) {
+    fs.remove(this.config.deploy, done);
+};
+
+Environment.prototype.copySpotsJar = function(done) {
+    async.each(this.config.spots, function(spot, done) {
+        var source = path.join(spot.path, spot.name);
+        var destination = path.join(this.config.deploy, spot.name);
+
+        fs.copy(source, destination, done);
+    }.bind(this), done);
+};
+
+Environment.prototype.renderEmulationFile = function(done) {
+    var template = path.join(__dirname, "templates", "emulation.xml");
+    var rendered = path.join(__dirname, this.config.deploy, "emulation.xml");
+
+    async.waterfall([
+        async.apply(swig.renderFile, template, this.config),
+        async.apply(fs.writeFile, rendered)
+    ], done);
+};
+
 module.exports = {
     builder: function(config) {
         return new Builder(config);
@@ -150,5 +186,8 @@ module.exports = {
     },
     store: function(config) {
         return new Store(config);
+    },
+    environment: function(config, done) {
+        return new Environment(config, done);
     }
 };
