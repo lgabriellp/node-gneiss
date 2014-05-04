@@ -3,7 +3,7 @@ var _ = require("lodash");
 var events = require("events");
 var assert = require("chai").assert;
 
-describe("Store", function() {
+describe.only("Store", function() {
     var store;
     var samples;
     var emitter;

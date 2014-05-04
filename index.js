@@ -1,29 +1,10 @@
 var child_process = require("child_process");
-var mongoskin = require("mongoskin");
 var events = require("events");
 var async = require("async");
 var swig = require("swig");
 var util = require("util");
 var path = require("path");
 var fs = require("fs-extra");
-
-function Store(config) {
-    var url = "mongodb://" + config.host + ":" + config.port + "/" + config.base;
-    this.db = mongoskin.db(url, { native_parser: true });
-    this.collection = this.db.bind(config.name, { w: 1 });
-}
-
-Store.prototype.save = function(args, done) {
-    this.collection.insert(args, done);
-};
-
-Store.prototype.find = function(args) {
-    return this.collection.find(args);
-};
-
-Store.prototype.drop = function(done) {
-    this.collection.remove(done);
-};
 
 function render(src, dst, config, done) {
     swig.renderFile(src, config, function(err, text) {
@@ -83,9 +64,7 @@ module.exports = {
     builder: function(config) {
         return new Builder(config);
     },
-    store: function(config) {
-        return new Store(config);
-    },
+    store: require("./store"),
     environment: require("./environment"),
     emulation: require("./emulation")
 };
