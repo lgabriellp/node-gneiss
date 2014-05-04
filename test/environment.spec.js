@@ -3,7 +3,7 @@ var chai = require("chai");
 var assert = chai.assert;
 chai.use(require("chai-fs"));
 
-describe.only("Environment", function() {
+describe("Environment", function() {
     var env;
 
     it("should create a deployment path", function(done) {
@@ -46,6 +46,10 @@ describe.only("Environment", function() {
         assert.pathExists("test/tmp/build.xml");
         assert.pathExists("test/tmp/emulation.xml");
         assert.pathExists("test/tmp/SimpleNode_1.0.0.jar");
+
+        assert.property(env, "buildFilePath");
+        assert.property(env, "emulationFilePath");
+       
         assert.fileContent("test/tmp/emulation.xml",
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"+
             "<virtual-config keep-addresses=\"false\" run-midlets=\"true\">\n" +

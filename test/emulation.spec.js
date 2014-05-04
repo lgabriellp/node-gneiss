@@ -1,72 +1,53 @@
 var gneiss = require(".");
-var through = require("through");
 var chai = require("chai");
 var assert = chai.assert;
 chai.use(require("chai-fs"));
 
-function until(expression, done) {
-    return through(function (data) {
-        if (data.toString().indexOf(expression) < 0) return;
-        done();
-    });
-}
-
 describe("Emulation", function() {
     var emu;
-    this.timeout(60000);
 
     beforeEach(function(done) {
         emu = gneiss.emulation({
-            path: "/home/lgabriel/Workspace/Ufrj/SunSPOT/sdk",
-            spots: [{
-                name: "SimpleNode",
-                version: "1.0.0",
-                path: "../../../Eclipse-Gneiss/SimpleSpot",
-                midlets: [{
-                    name: "SimpleNode",
-                    pkg: "br.ufrj.dcc.simple"
-                }]
-            }]
+            file: "test/fixtures/environment.json"
         }, done);
     });
-
-    beforeEach(function(done) {
-        emu.pipe(until("-do-run-solarium", done));
-    });
-
-    beforeEach(function() {
-        assert.pathExists("tmp/emulation.xml");
-    });
-
+    
     afterEach(function(done) {
-        emu.stop();
         emu.clean(function(err) {
             if (err) return done(err);
 
-            assert.notPathExists("tmp/emulation.xml");
-            assert.notPathExists("tmp");
+            assert.notPathExists("test/tmp");
             done();
         });
     });
 
-    it("should start and stop an emulator", function(done) {
-        setTimeout(done, 9000);
+    it("should stop after a timeout", function(done) {
+        emu.stop({
+            timeout: 1000
+        }, done);
     });
 
-    it("should run a midlet", function(done) {
-        emu.pipe(until("\"event\": \"step\"", done));
+    it("should stop after a sentence", function(done) {
+        this.timeout(20000);
+
+        emu.stop({
+            regex: /"event":\s+"step"/gm
+        }, done);
     });
 
     it("should emit events", function(done) {
+        this.timeout(20000);
+
         emu.on("event", function(ev) {
             assert.isObject(ev);
             assert.property(ev, "event");
             assert.property(ev, "address");
 
-            if (ev.event === "step") done();
+            if (ev.event === "step") {
+                emu.stop({
+                    timeout: 1
+                }, done);
+            }
         });
     });
-    
-    it("should run multiple spots");
-    it("should run multiple spots with multiples midlets");
 });

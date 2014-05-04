@@ -1,82 +1,11 @@
 var child_process = require("child_process");
 var mongoskin = require("mongoskin");
-var stream = require("stream");
 var events = require("events");
 var async = require("async");
+var swig = require("swig");
 var util = require("util");
 var path = require("path");
-var swig = require("swig");
 var fs = require("fs-extra");
-
-function render(src, dst, config, done) {
-    swig.renderFile(src, config, function(err, text) {
-        if (err) return done(err);
-
-        fs.writeFile(dst, text, done);
-    });
-}
-
-function Emulation(config, done) {
-    stream.PassThrough.call(this);
-
-    this.configFile = "/tmp/emulation.xml";
-    
-    async.series([
-        async.apply(fs.mkdirs, "tmp"),
-        function(done) {
-            render(path.join(__dirname, "templates", "emulation.xml"),
-                   path.join(__dirname, this.configFile),
-                   config,
-                   done);
-        }.bind(this),
-    ], function(err) {
-        if (err) return done(err);
-        
-        this.start(config);
-        done();
-    }.bind(this));
-}
-
-util.inherits(Emulation, stream.PassThrough);
-
-Emulation.prototype.start = function(config) {
-    if (this.xvfb || this.child) return;
-
-    var argv = [ "solarium", "-Dconfig.file=" + __dirname + this.configFile ];
-    var options = {
-        cwd: config.path,
-        env: { DISPLAY: ":1" },
-        detached: true
-    };
-
-    this.xvfb = child_process.spawn("Xvfb", [ ":1" ], options);
-    this.child = child_process.spawn("ant", argv, options);
-
-    this.on("data", function (data) {
-        var lines = data.toString().split("\n");
-        
-        for (var i = 0; i < lines.length; i++) {
-            var begin = lines[i].indexOf("{");
-            var end = lines[i].indexOf("}");
-
-            if (begin === -1 || end === -1) continue;
-
-            this.emit("event", JSON.parse(lines[i].substr(begin, end)));
-        }
-    });
-
-    this.child.stdout.pipe(this);
-    this.child.stderr.pipe(this);
-};
-
-Emulation.prototype.stop = function() {
-    this.child.kill("SIGINT");
-    this.xvfb.kill("SIGINT");
-};
-
-Emulation.prototype.clean = function(done) {
-    fs.remove("tmp", done);
-};
 
 function Store(config) {
     var url = "mongodb://" + config.host + ":" + config.port + "/" + config.base;
@@ -95,6 +24,14 @@ Store.prototype.find = function(args) {
 Store.prototype.drop = function(done) {
     this.collection.remove(done);
 };
+
+function render(src, dst, config, done) {
+    swig.renderFile(src, config, function(err, text) {
+        if (err) return done(err);
+
+        fs.writeFile(dst, text, done);
+    });
+}
 
 function Builder(config) {
     events.EventEmitter.call(this);
@@ -141,74 +78,14 @@ Builder.prototype.clean = function(done) {
     fs.remove(this.deploy, done);
 };
 
-function Environment(config, done) {
-    async.series([
-        async.apply(this.loadConfig.bind(this), config),
-        async.apply(this.createBuildPath.bind(this)),
-        async.apply(this.copyBuildFile.bind(this)),
-        async.apply(this.copySpotsJar.bind(this)),
-        async.apply(this.renderEmulationFile.bind(this)),
-    ], done);
-}
-
-Environment.prototype.loadConfig = function(config, done) {
-    if (!config.file) {
-        this.config = config;
-        return done();
-    }
-
-    fs.readFile(config.file, function(err, text) {
-        if (err) return done(err);
-
-        this.config = JSON.parse(text);
-        done();
-    }.bind(this));
-};
-
-Environment.prototype.createBuildPath = function(done) {
-    fs.mkdirs(this.config.deploy, done);
-};
-
-Environment.prototype.copyBuildFile = function(done) {
-    fs.copy(path.join(this.config.sunspot, "build.xml"),
-            path.join(this.config.deploy, "build.xml"),
-            done);
-};
-
-Environment.prototype.clean = function(done) {
-    fs.remove(this.config.deploy, done);
-};
-
-Environment.prototype.copySpotsJar = function(done) {
-    async.each(this.config.spots, function(spot, done) {
-        var source = path.join(spot.path, spot.name);
-        var destination = path.join(this.config.deploy, spot.name);
-
-        fs.copy(source, destination, done);
-    }.bind(this), done);
-};
-
-Environment.prototype.renderEmulationFile = function(done) {
-    var template = path.join(__dirname, "templates", "emulation.xml");
-    var rendered = path.join(__dirname, this.config.deploy, "emulation.xml");
-
-    async.waterfall([
-        async.apply(swig.renderFile, template, this.config),
-        async.apply(fs.writeFile, rendered)
-    ], done);
-};
 
 module.exports = {
     builder: function(config) {
         return new Builder(config);
     },
-    emulation: function(config, done) {
-        return new Emulation(config, done);
-    },
     store: function(config) {
         return new Store(config);
     },
-    environment: function(config, done) {
-        return new Environment(config, done);
-    }
+    environment: require("./environment"),
+    emulation: require("./emulation")
 };
