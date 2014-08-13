@@ -1,4 +1,4 @@
-var gneiss = require(".");
+var gneiss = require("..");
 var _ = require("lodash");
 var events = require("events");
 var assert = require("chai").assert;

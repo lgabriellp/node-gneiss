@@ -1,4 +1,4 @@
-var gneiss = require(".");
+var gneiss = require("..");
 var chai = require("chai");
 var assert = chai.assert;
 chai.use(require("chai-fs"));
