@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="{{name}}" default="jar-app" basedir=".">
+    <property name="sunspot.home" value="{{sunspot}}"/>
+    <property name="user.home" value="{{deploy}}"/>
+    <import file="${sunspot.home}/build.xml"/>
+</project>

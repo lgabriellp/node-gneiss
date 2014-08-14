@@ -1,58 +1,120 @@
-var child_process = require("child_process");
-var events = require("events");
-var async = require("async");
-var swig = require("swig");
-var util = require("util");
+// Builder Implementation
+// ======================
+
+// requirements
+// ------------
+// - **lodash** for utilities
+// - **path** for filesystem path manipulations
+// - **bluebird** for A+ promises implementation
+// - **swig** for template rendering
+// - **fs-extra** for filesystem manipulations
+// - **child_process** for running ant build system
+var _ = require("lodash");
 var path = require("path");
-var fs = require("fs-extra");
+var Promise = require("bluebird");
+var swig = Promise.promisifyAll(require("swig"));
+var fs = Promise.promisifyAll(require("fs-extra"));
+var child_process = Promise.promisifyAll(require("child_process"));
 
-function render(src, dst, config, done) {
-    swig.renderFile(src, config, function(err, text) {
-        if (err) return done(err);
+// render(src, dst, config)
+// ------------------------
+// Renders templates located in templates directory
+//
+// - **src** is the name of the template;
+// - **dst** is the destination path of the rendered template
+// - **config** is the configuration to be applyed to the template
 
-        fs.writeFile(dst, text, done);
+function render(src, dst, config) {
+    return swig.renderFileAsync(path.join.apply(path, [
+        __dirname, "templates", src
+    ]), config)
+    .then(function(text) {
+        return fs.writeFileAsync(dst, text);
     });
 }
 
+// Builder(config)
+// ---------------
+// Builder class is the responsible for configuring and building required jar
+// files to be used in solarium emulations
+//
+// - **config.sunspot** is the path of the sunspot installation
+// - **config.deploy** is the path of the jars deployment
+
 function Builder(config) {
-    events.EventEmitter.call(this);
-    this.deploy = path.join(__dirname, config.deploy);
+    this.buildFile = path.join.apply(path, [
+        __dirname, "deps", "SunSPOT", "build.xml"
+    ]);
+
+    this.sunspot = config.sunspot;
+    this.deploy = config.deploy;
 }
 
-util.inherits(Builder, events.EventEmitter);
+Builder.prototype.configureOne = function(spot) {
+    var self = this;
+    
+    spot.sunspot = self.sunspot;
+    spot.deploy = self.deploy;
+    spot.buildPath = path.join.apply(path, [
+        self.deploy,
+        path.basename(spot.path),
+        spot.version
+    ]);
+    spot.jarPath = path.join.apply(path, [
+        spot.buildPath,
+        "suite",
+        spot.name + "_" + spot.version + ".jar"
+    ]);
 
-Builder.prototype.buildOne = function(spot, done) {
-    var buildSourcePath = path.join(this.deploy, path.basename(spot.path), spot.version);
-    var jarBuildName = spot.name + "_" + spot.version + ".jar";
-    var jarBuildPath = path.join(buildSourcePath, "suite", jarBuildName);
-    var jarDestPath = path.join(this.deploy, jarBuildName);
+    _.forEach(spot.midlets, function(midlet, index) {
+        midlet.number = index + 1;
+    });
 
-    async.series([
-        async.apply(fs.mkdirs, this.deploy),
-        async.apply(fs.copy, spot.path, buildSourcePath),
-        function(callback) {
-            spot.midlets.forEach(function(midlet, index) {
-                midlet.number = index + 1;
-            });
-
-            callback();
-        },
-        async.apply(render,
-                    path.join(__dirname, "templates", "manifest.mf"),
-                    path.join(buildSourcePath, "resources", "META-INF", "manifest.mf"),
-                    spot),
-        
-        async.apply(child_process.exec, "ant jar-app", {
-            cwd: buildSourcePath
-        }),
-        async.apply(fs.copy, jarBuildPath, jarDestPath)
-    ], function(err, results) {
-        done(err, results);
+    return fs.mkdirsAsync(self.deploy)
+    .then(function() {
+        return fs.copyAsync(spot.path, spot.buildPath);
+    }).then(function() {
+        return render("build.xml", path.join.apply(path, [
+            spot.buildPath,
+            "build.xml",
+        ]), spot);
+    }).then(function() {
+        return render("manifest.mf", path.join.apply(path, [
+            spot.buildPath,
+            "resources",
+            "META-INF",
+            "manifest.mf"
+        ]), spot);
     });
 };
 
-Builder.prototype.build = function(spots, done) {
-    async.each(spots, this.buildOne.bind(this), done);
+Builder.prototype.buildOne = function(spot) {
+    return child_process.execAsync("ant", {
+        cwd: spot.buildPath
+    }).then(function() {
+        return fs.copyAsync(spot.jarPath, path.join.apply(path, [
+            spot.deploy,
+            path.basename(spot.jarPath)
+        ]));
+    });
+};
+
+Builder.prototype.configure = function(spots) {
+    var self = this;
+    if (!_.isArray(spots)) spots = [spots];
+
+    return Promise.map(spots, function(spot) {
+        return self.configureOne(spot);
+    }, { concurrency: 3 });
+};
+
+Builder.prototype.build = function(spots) {
+    var self = this;
+    if (!_.isArray(spots)) spots = [spots];
+
+    return Promise.map(spots, function(spot) {
+        return self.buildOne(spot);
+    }, { concurrency: 3 });
 };
 
 Builder.prototype.clean = function(done) {
