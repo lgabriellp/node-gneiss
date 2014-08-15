@@ -1,4 +1,4 @@
-var gneiss = require("..");
+var Builder = require("../lib/builder");
 var chai = require("chai");
 var path = require("path");
 var _ = require("lodash");
@@ -14,7 +14,7 @@ describe("Spot Builder", function() {
         self.project = path.join(__dirname, "../../sunspot-simple");
         self.sunspot = path.join(__dirname, "../deps/SunSPOT/sdk");
 
-        self.builder = gneiss.builder({
+        self.builder = new Builder({
             deploy: self.deploy,
             sunspot: self.sunspot
         });
@@ -24,38 +24,24 @@ describe("Spot Builder", function() {
         assert.pathExists(self.sunspot);
     });
 
-    afterEach(function(done) {
-        self.builder.clean(function(err) {
-            if (err) return done(err);
-
+    afterEach(function() {
+        return self.builder.clean()
+        .then(function() {
             assert.notPathExists(self.deploy);
             assert.pathExists(self.project);
-            done();
+        }).catch(function(reason) {
+            console.log(reason.stack);
         });
     });
 
-    it("should build single spot jar", function() {
-        var spot = {
-            name: "SimpleNode",
-            vendor: "DCC-UFRJ",
-            version: "1.0.0",
-            path: self.project,
-            midlets: [{
-                name: "SimpleNode",
-                pkg: "br.ufrj.dcc.simple"
-            }]
-        };
-
+    function checkSpot(spot) {
         return self.builder.configure(spot).then(function() {
             _.forEach(spot.midlets, function(midlet, index) {
                 assert.equal(midlet.number, index + 1);
             });
 
             assert.pathExists(self.deploy);
-            assert.fileContent(path.join.apply(path, [
-                spot.buildPath,
-                "build.xml"
-            ]), [
+            assert.fileContent(path.join(spot.buildPath, "build.xml"), [
                 '<?xml version="1.0" encoding="UTF-8"?>',
                 '<project name="SimpleNode" default="jar-app" basedir=".">',
                 '    <property name="sunspot.home" value="' + self.sunspot + '"/>',
@@ -82,11 +68,22 @@ describe("Spot Builder", function() {
         }).then(function() {
             return self.builder.build(spot);
         }).then(function() {
-            assert.notIsEmptyFile(path.join.apply(path, [
-                self.deploy,
-                "SimpleNode_1.0.0.jar"
-            ]));
-        });
+            assert.notIsEmptyFile(path.join(self.deploy, spot.name + "_" + spot.version + ".jar"));
+        });    
+    }
+
+    it("should build single spot jar", function() {
+        var spot = {
+            name: "SimpleNode",
+            vendor: "DCC-UFRJ",
+            version: "1.0.0",
+            path: self.project,
+            midlets: [{
+                name: "SimpleNode",
+                pkg: "br.ufrj.dcc.simple"
+            }]
+        };
+        return checkSpot(spot);
     });
 
     it("should build multiple spot jar", function() {
@@ -120,10 +117,7 @@ describe("Spot Builder", function() {
         .then(function() {
             return self.builder.build(spots);
         }).then(function() {
-            assert.pathExists(self.deploy);
-            assert.notIsEmptyFile(path.join(self.deploy, "SimpleNode_A.jar"));
-            assert.notIsEmptyFile(path.join(self.deploy, "SimpleNode_B.jar"));
-            assert.notIsEmptyFile(path.join(self.deploy, "SimpleNode_C.jar"));
+            _.forEach(spots, checkSpot);
         });
     });
 });
